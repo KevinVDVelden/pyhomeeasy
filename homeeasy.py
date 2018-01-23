@@ -2,7 +2,6 @@ import json
 import struct
 import socket
 import time
-#from collections import defaultdict
 
 HEADER = b'\xff\xee\xaf\xae'
 SEPARATOR = b'$'
@@ -24,7 +23,7 @@ class Room:
             yield self.homeeasy.switch( switch['devid'] )
 
     def __str__( self ):
-        return '<Room  %d:%s>' % ( self.id, self.name )
+        return '<Room  %d:"%s">' % ( self.id, self.name )
 
 class Switch:
     def __init__( self, homeeasy, room, data ):
@@ -40,7 +39,7 @@ class Switch:
         return self.data['devid']
 
     def __str__( self ):
-        return '<Switch %d:%s from room %s>' % ( self.id, self.name, self.room.name )
+        return '<Switch %d:"%s" from room "%s">' % ( self.id, self.name, self.room.name )
 
 class Homeeasy:
     def __init__( self, host, user, password ):
@@ -134,7 +133,6 @@ class Homeeasy:
 
     def rebuild( self, force = False ):
         if force or self.isDataStale() or len( self.switchObjects ) == 0:
-            print( 'Rebuilding' )
             #First, clear all string keys
             for key in tuple( self.roomObjects.keys() ):
                 if type( key ) is str:
@@ -174,76 +172,8 @@ class Homeeasy:
         self.rebuild()
         return tuple( self.switchObjects[n] for n in self.switchObjects if type( n ) is int )
 
-#data = tuple( open( 'homeeasy.dump', 'rb' ) )
-#
-#PREAMBLE = '---------------- Read from: '
-#
-#parsedData = []
-#
-#source = None
-#packet = bytes()
-#for line in data[1:]:
-#    strLine = ''
-#    try:
-#        strLine = line.decode( 'ascii' )
-#    except:
-#        pass
-#
-#    if strLine.startswith( PREAMBLE ):
-#        if source is not None:
-#            parsedData.append( ( source, packet.hex() ) )
-#
-#        source = strLine[ len( PREAMBLE ): ]
-#        source = source[ : source.find( ' ---------' ) ]
-#        packet = bytes()
-#    else:
-#        packet = packet + line
-#
-#
-#json.dump( parsedData, open( 'homeeasy.json', 'w' ) )
-
-
-allData = json.load( open( 'homeeasy.json', 'r') )
-allData = tuple( ( a[:a.find(':')], bytes.fromhex( b )[:-1] ) for a, b  in allData )
-
-#start = {}
-#for source, data in allData:
-#    if source not in start:
-#        start[source] = data[:]
-#        continue
-#
-#    minLen = min( len( start[source] ), len( data ) )
-#    for n in range( minLen ):
-#        if start[source][ n ] == data[ n ]:
-#            minLen = n
-#        else:
-#            break
-#
-#    start[source] = start[source][ : minLen + 1 ]
-#
-#remains = defaultdict( lambda: [] )
-#for source, data in allData:
-#    remains[source].append( data[ len(start[source]): ] )
 
 ha = Homeeasy( 'homeeasy.lan', 'admin', '96e79218965eb72c92a549dd5a330112' )
 print( ha.room( 'Livingroom' ) )
 for switch in ha.switches:
     print( switch )
-#for room in ha.rawRooms.values():
-#    print( room )
-#print()
-#for switch in ha.rawSwitches:
-#    print( switch[0], ha.rawRooms[ switch[1] ] )
-
-#json.dump( ha.status, open( 'homeeasy.rooms.json', 'w' ), indent=4, sort_keys=True )
-
-#for source, message in allData:
-#    if source != 'homeeasy.lan':
-#        print( source )
-#        print( message[8:] )
-#        print()
-#        continue
-#
-#    print( source )
-#    ha.decode( message )
-#    print()
