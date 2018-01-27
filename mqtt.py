@@ -1,5 +1,6 @@
 import paho.mqtt.client as mqtt
 import homeeasy
+import os
 
 class MqttPersistence:
     def __init__( self, prefix, client ):
@@ -18,7 +19,7 @@ class MqttPersistence:
 
     def on_connect( self, client, userdata, flags, rc ):
         assert( client == self.client )
-        print( 'Connected.' )
+        print( 'Connected and subscribing to "%s".' % ( self.prefix, ) )
         client.subscribe( self.prefix + '#' )
 
     def on_message( self, client, userdata, msg ):
@@ -70,14 +71,18 @@ class MqttPersistence:
         self.client.publish( key, payload = value, retain = True )
 
 
-# The callback for when a PUBLISH message is received from the server.
+MQTT_BROKER                 = os.getenv( 'MQTT_BROKER',            'localhost' )
+MQTT_PREFIX                 = os.getenv( 'MQTT_PREFIX',            'ha/switch/homeeasy' )
 
+HOMEEASY_ADDRESS            = os.getenv( 'HOMEEASY_ADDRESS',       'homeeasy.lan' )
+HOMEEASY_USER               = os.getenv( 'HOMEEASY_USER',          'admin' )
+HOMEEASY_PASSWORD_HASH      = os.getenv( 'HOMEEASY_PASSWORD_HASH', '96e79218965eb72c92a549dd5a330112' )
 
 client = mqtt.Client()
-persistence = MqttPersistence( 'ha/switch/homeeasy', client )
-ha = homeeasy.HomeEasy( 'homeeasy.lan', 'admin', '96e79218965eb72c92a549dd5a330112', persistence )
+persistence = MqttPersistence( MQTT_PREFIX, client )
+ha = homeeasy.HomeEasy( HOMEEASY_ADDRESS, HOMEEASY_USER, HOMEEASY_PASSWORD_HASH, persistence )
 persistence.set_homeeasy( ha )
 
-client.connect('localhost', 1883, 60)
+client.connect( MQTT_BROKER, 1883, 60 )
 
 client.loop_forever()
