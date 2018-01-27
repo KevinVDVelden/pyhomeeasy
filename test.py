@@ -9,7 +9,7 @@ if len( sys.argv ) == 2:
         for room in ha.rooms:
             print( room.name )
             for switch in room.switches:
-                print( '\t', switch.name )
+                print( '\t%s (%d)' % ( switch.name, switch.id ) )
 if len( sys.argv ) == 3:
     ha.switch( sys.argv[1] ).set_state( sys.argv[2] )
 
