@@ -2,6 +2,7 @@ import json
 import struct
 import socket
 import time
+from persistence import JsonPersistence
 
 HEADER = b'\xff\xee\xaf\xae'
 SEPARATOR = b'$'
@@ -22,8 +23,17 @@ class Room:
         for switch in self.data['switchdev']:
             yield self.homeeasy.switch( switch['devid'] )
 
+    def turn_on( self ):
+        self.set_state( True )
+    def turn_off( self ):
+        self.set_state( False )
+
+    def set_state( self, new_state ):
+        for switch in self.switches:
+            switch.set_state( new_state )
+
     def __str__( self ):
-        return '<Room  %d:"%s">' % ( self.id, self.name )
+        return '<Room %d:"%s">' % ( self.id, self.name )
 
 class Switch:
     def __init__( self, homeeasy, room, data ):
@@ -38,11 +48,28 @@ class Switch:
     def id( self ):
         return self.data['devid']
 
+    @property
+    def is_on( self ):
+        return self.homeeasy.get_state( 'switch', int( self.data['devid'] ), False )
+
+    def turn_on( self ):
+        self.set_state( True )
+    def turn_off( self ):
+        self.set_state( False )
+
+    def set_state( self, new_state ):
+        if new_state == 'on':
+            new_state = True
+        elif new_state == 'off':
+            new_state = False
+
+        return self.homeeasy.set_state( 'switch', str( self.data['devid'] ), new_state, False )
+
     def __str__( self ):
         return '<Switch %d:"%s" from room "%s">' % ( self.id, self.name, self.room.name )
 
-class Homeeasy:
-    def __init__( self, host, user, password ):
+class HomeEasy:
+    def __init__( self, host, user, password, persistence = None ):
         self.host = host
         self.user = user
         self.password = password
@@ -52,11 +79,20 @@ class Homeeasy:
         self.switchObjects = {}
         self.roomObjects = {}
 
+        if persistence is None:
+            persistence = 'homeeasy-persistence.json'
+
+        if type( persistence ) is str:
+            self.persistence = JsonPersistence( persistence )
+        else:
+            self.persistence = persistence
+
     def encode( self, *args ):
         message = self.user.encode( 'ascii' ) + SEPARATOR + self.password.encode( 'ascii' ) + SEPARATOR + SEPARATOR.join( [ str( n ).encode( 'ascii' ) for n in args ] )
         return HEADER + struct.pack( '!I', len( message ) ) + message
 
     def decode( self, message ):
+        print( 'Decoding message', message )
         assert( HEADER == message[:4] )
         length = struct.unpack_from( '!I', message, 4 )[0]
         assert( length == ( len( message ) - 8 ) )
@@ -72,6 +108,7 @@ class Homeeasy:
 
     def sendMessage( self, *args ):
         message = self.encode( *args )
+        print( 'Sending message:', message )
 
         _socket = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         _socket.connect( ( self.host, 58168 ) )
@@ -85,6 +122,26 @@ class Homeeasy:
             retrieved += data
 
         return self.decode( retrieved )
+
+    def get_state( self, dev_type, dev_id, default ):
+        ret = self.persistence.get( ( dev_type, dev_id ) )
+        if ret is None:
+            return default
+
+        return ret
+
+    def set_state( self, dev_type, dev_id, new_state, default ):
+        if self.get_state( dev_type, dev_id, -1 ) == new_state:
+            return True
+
+        is_ok, message = self.sendMessage( 'ctrl', dev_type, dev_id, 'on$' if new_state else 'off$' )
+        if is_ok:
+            self.persistence.set( ( dev_type, dev_id ), new_state )
+
+            return True
+        else:
+            return False
+
 
     def isDataStale( self ):
         return self.rawData is None or ( time.time() - self.rawDataRecieved ) > 1
@@ -117,7 +174,7 @@ class Homeeasy:
 
         if allow_rebuild:
             self.rebuild()
-            return self.switch( name, False )
+            return self.room( name, False )
         else:
             return None
 
@@ -172,8 +229,3 @@ class Homeeasy:
         self.rebuild()
         return tuple( self.switchObjects[n] for n in self.switchObjects if type( n ) is int )
 
-
-ha = Homeeasy( 'homeeasy.lan', 'admin', '96e79218965eb72c92a549dd5a330112' )
-print( ha.room( 'Livingroom' ) )
-for switch in ha.switches:
-    print( switch )
