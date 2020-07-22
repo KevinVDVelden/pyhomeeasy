@@ -19,8 +19,9 @@ class MqttPersistence:
 
     def set_homeeasy( self, homeeasy, discovery_prefix ):
         self.homeeasy = homeeasy
-        if discovery_prefix[-1] != '/':
-            discovery_prefix += '/'
+
+        if discovery_prefix != '' and discovery_prefix[-1] != '/':
+                discovery_prefix += '/'
 
         self.discovery_prefix = discovery_prefix
 
