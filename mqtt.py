@@ -46,22 +46,25 @@ class MqttPersistence:
                     }
 
             for switch in self.homeeasy.switches:
-                #self.client.publish( self.discovery_prefix + 'light'
                 key = self.discovery_prefix + 'switch/homeeasy/' + 'homeeasy_switch_' + str( switch.id ) + '/config'
                 data["command_topic"] = switch_topic = self.prefix + 'homeeasy_switch_' + str( switch.id ) + '/set'
                 data["state_topic"] = switch_topic = self.prefix + 'homeeasy_switch_' + str( switch.id ) + '/state'
                 data["unique_id"] = "homeeasy_dev_" + str( switch.id )
                 data["name"] = switch.name
+
+                print( '    Registering: ' + switch.name )
                 self.client.publish( key, payload = json.dumps( data ), retain = True )
                 self.topic_mapping[ 'homeeasy_switch_' + str( switch.id ) ] = switch.id
 
+            print( 'Going online for HA' )
             self.client.publish( self.discovery_prefix + 'homeeasy', 'online', retain = True )
             self.client.will_set( self.discovery_prefix + 'homeeasy', 'offline', retain = True )
 
     def disconnect( self ):
         print( 'Shutting down' )
-        self.client.publish( self.discovery_prefix + 'homeeasy', 'offline', retain = True )
-        time.sleep( 0.5 )
+        if self.discovery_prefix != '':
+            self.client.publish( self.discovery_prefix + 'homeeasy', 'offline', retain = True )
+            time.sleep( 0.5 )
         self.client.disconnect()
 
     def on_message( self, client, userdata, msg ):
